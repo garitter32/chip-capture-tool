@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Chip Go! capture tool, prototype v0</title>
+<style>
+:root{--bg:#fff;--fg:#161616;--mu:#666;--card:#f3f3f3;--bd:#d6d6d6;--ac:#f26522;--acfg:#fff;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media(prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#161616;--fg:#f2f2f2;--mu:#a3a3a3;--card:#242424;--bd:#3c3c3c}}
+:root[data-theme="dark"]{--bg:#161616;--fg:#f2f2f2;--mu:#a3a3a3;--card:#242424;--bd:#3c3c3c}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.4 Inter,system-ui,-apple-system,Segoe UI,sans-serif}
+.w{max-width:560px;margin:0 auto;padding:14px}
+h1{font-size:20px;margin:0 0 4px}h2{font-size:15px;margin:18px 0 8px}
+.mu{color:var(--mu);font-size:13px}
+.bn{padding:8px 12px;border-radius:8px;font-weight:600;margin:10px 0;background:var(--card);border-left:6px solid var(--ac)}
+.bn.real{border-left-color:#1b8a3a}
+.g{display:grid;gap:8px;grid-template-columns:repeat(2,1fr)}.g4{grid-template-columns:repeat(4,1fr)}
+button,select,input,textarea{font:inherit;color:var(--fg);background:var(--card);border:1px solid var(--bd);border-radius:10px;padding:12px 8px;width:100%;box-sizing:border-box}
+button.on{background:var(--ac);color:var(--acfg);border-color:var(--ac);font-weight:700}
+button.p{background:var(--ac);color:var(--acfg);border-color:var(--ac);font-weight:700}
+.k{display:flex;gap:16px;margin:8px 0}.k div{flex:1}.k b{display:block;font-size:26px;font-variant-numeric:tabular-nums}
+label{display:block;font-size:13px;color:var(--mu);margin:8px 0 4px}
+textarea{min-height:64px}.sm{font-size:12px;white-space:pre-wrap}
+.ck{display:flex;align-items:center;gap:8px;margin:8px 0}.ck input{width:auto}
+</style></head><body><div class="w">
+<h1>Chip Go! capture tool</h1>
+<div class="mu">Prototype v0. Occupied (m) = total operator time with attention fully on the vehicle: planned driving, parking and issues. Attach is not counted as occupied (assumption).</div>
+<div id="app"></div>
+<h2>Export</h2>
+<select id="tb" onchange="exp()"><option>visit</option><option>request</option><option>phase_event</option><option>operator_state_event</option><option>incident_event</option><option>handoff_event</option></select>
+<textarea id="out" class="sm" readonly rows="8" style="margin-top:8px"></textarea>
+<div class="g" style="margin-top:8px"><button onclick="cp()" id="cpb">Copy CSV</button><button onclick="clr()" id="clb">Clear all data</button></div>
+<div class="mu" style="margin-top:6px">Downloads are blocked on this hosted page, so copy the table and paste it into a sheet. Columns are tab-separated, so they split into cells automatically. Data stays in this browser until cleared.</div>
+</div>
+<script>
+var KEY='chipcap_v0',S={reqs:[],cur:null,n:0,cfg:{by:'',type:'dropoff_park',src:'synthetic',op:'',venue:''}},U={rc:'other',ho:'',hr:'issue_elsewhere',st:true,inn:'',hn:''},CL=0;
+try{var x=localStorage.getItem(KEY);if(x)S=JSON.parse(x)}catch(e){}
+function sv(){try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}}
+function now(){return Date.now()}
+function mm(v){return Math.round(v/1000)}
+function iso(t){return t==null?'':new Date(t).toISOString()}
+function ov(a,b,c,d){return Math.max(0,Math.min(b,d)-Math.max(a,c))}
+function calc(r){var T=r.t1||now(),cl=function(v){return v==null?T:v},m=0,im=0,sp=0,pm={};
+ r.ops.forEach(function(o){var d=cl(o.e)-o.s;if(o.st=='occupied'){m+=d;if(o.rs=='issue')im+=d;r.ph.forEach(function(p){pm[p.p]=(pm[p.p]||0)+ov(o.s,cl(o.e),p.s,cl(p.e))})}if(o.st=='supervising')sp+=d});
+ var f=r.ops.filter(function(o){return o.st=='occupied'})[0],w=T-r.t0;
+ return{w:w,m:m,im:im,sp:sp,pm:pm,att:f?f.s-r.t0:null,ni:r.inc.filter(function(i){return i.k=='intervention'}).length,ns:r.inc.filter(function(i){return i.k=='safe_stop'}).length,nh:r.ho.length}}
+function cur(a){var c=S.cur;return c[a][c[a].length-1]}
+function start(){var g=function(i){return document.getElementById(i).value};
+ S.cfg={by:g('by'),type:g('ty'),src:g('sr'),op:g('op'),venue:g('ve'),veh:g('vh'),pass:g('ps')};
+ var last=S.reqs[S.reqs.length-1],t=now();S.n++;
+ var vis=(S.cfg.type=='retrieval'&&last)?last.visit:'V'+(S.reqs.filter(function(r){return r.type!='retrieval'}).length+1);
+ S.cur={id:'R'+S.n,visit:vis,type:S.cfg.type,src:S.cfg.src,by:S.cfg.by,venue:S.cfg.venue,veh:S.cfg.veh,pass:S.cfg.pass,dist:g('ds'),vn:g('vn'),oid:S.cfg.op,t0:t,t1:null,status:'',notes:'',tz:-new Date().getTimezoneOffset(),ph:[{p:'attach',s:t,e:null,ps:false}],ops:[{st:'not_attached',rs:'',ld:1,s:t,e:null,oid:S.cfg.op}],inc:[],ho:[]};
+ sv();render()}
+function phase(p,ps){var c=S.cur,t=now();cur('ph').e=t;c.ph.push({p:p,s:t,e:null,ps:!!ps});sv();render()}
+function psearch(){var a=cur('ph');phase('arrival',!a.ps)}
+function op(st,rs){var c=S.cur,t=now(),o=cur('ops');o.e=t;c.ops.push({st:st,rs:rs,ld:o.ld,s:t,e:null,oid:c.oid});sv();render()}
+function load(v){var c=S.cur,t=now(),o=cur('ops');o.e=t;c.ops.push({st:o.st,rs:o.rs,ld:+v,s:t,e:null,oid:c.oid});sv();render()}
+function inc(k){S.cur.inc.push({t:now(),k:k,ph:cur('ph').p,rc:U.rc,n:U.inn});U.inn='';sv();render()}
+function hand(){var c=S.cur;c.ho.push({t:now(),f:c.oid,to:U.ho,st:U.st,rs:U.hr,n:U.hn});U.hn='';if(U.ho)c.oid=U.ho;sv();render()}
+function end(s){var c=S.cur,t=now();c.t1=t;c.status=s;cur('ph').e=t;cur('ops').e=t;S.reqs.push(c);S.cur=null;sv();render()}
+function sel(id,opts,v){return '<select id="'+id+'">'+opts.map(function(o){return '<option'+(o==v?' selected':'')+'>'+o+'</option>'}).join('')+'</select>'}
+function render(){var c=S.cur,h='';
+ if(!c){var f=S.cfg;
+  h+='<h2>New request</h2><label>Recorded by</label><input id="by" value="'+f.by+'"><label>Request type</label>'+sel('ty',['dropoff_park','retrieval'],f.type)+'<label>Data source</label>'+sel('sr',['synthetic','test','real'],f.src)+'<label>Operator id (anonymized)</label><input id="op" value="'+f.op+'"><label>Venue type (optional)</label><input id="ve" value="'+f.venue+'"><label>Vehicle id (optional)</label><input id="vh" value="'+(f.veh||'')+'"><label>Pass type (optional)</label>'+sel('ps',['n/a','day','week','month','year','unknown'],f.pass||'n/a')+'<label>Distance, miles (optional)</label><input id="ds" type="number" step="0.1" min="0"><label>Visit notes (optional)</label><input id="vn"><div style="margin-top:12px"><button class="p" onclick="start()">Start request</button></div>';
+  if(S.reqs.length){h+='<h2>Recorded requests</h2>';S.reqs.slice().reverse().forEach(function(r){var k=calc(r);h+='<div class="sm" style="margin-bottom:8px">'+r.id+' · '+r.type+' · '+r.src+' · '+r.status+'<br>w '+mm(k.w)+' sec, m '+mm(k.m)+' sec, m/w '+(k.w?(k.m/k.w).toFixed(2):'')+', interventions '+k.ni+', safe stops '+k.ns+'</div>'})}
+ }else{var p=cur('ph'),o=cur('ops'),ph=['attach','departure','transit','arrival'];
+  h+='<div class="bn '+(c.src=='real'?'real':'')+'">'+c.src.toUpperCase()+' data · '+c.id+' · '+c.type+' · visit '+c.visit+'</div>';
+  h+='<div class="k"><div><span class="mu">Elapsed (w, sec)</span><b id="cw"></b></div><div><span class="mu">Occupied (m, sec)</span><b id="cm"></b></div><div><span class="mu">m/w</span><b id="cr"></b></div></div>';
+  h+='<h2>Phase</h2><div class="g g4">'+ph.map(function(x){return '<button class="'+(p.p==x?'on':'')+'" onclick="phase(\''+x+'\')">'+x+'</button>'}).join('')+'</div>';
+  if(p.p=='arrival')h+='<div style="margin-top:8px"><button class="'+(p.ps?'on':'')+'" onclick="psearch()">'+(p.ps?'Searching for a spot (tap when found)':'Start parking search')+'</button></div>';
+  h+='<h2>Operator state</h2><div class="g">'+[['not_attached','','Not attached'],['supervising','','Supervising'],['occupied','planned_phase','Occupied: planned'],['occupied','issue','Occupied: issue']].map(function(x){return '<button class="'+(o.st==x[0]&&o.rs==x[1]?'on':'')+'" onclick="op(\''+x[0]+'\',\''+x[1]+'\')">'+x[2]+'</button>'}).join('')+'</div>';
+  h+='<label>Operator load (vehicles held, including this one)</label><select onchange="load(this.value)"><option'+(o.ld==1?' selected':'')+'>1</option><option'+(o.ld==2?' selected':'')+'>2</option></select>';
+  h+='<h2>Incidents</h2><select onchange="U.rc=this.value">'+['link_loss','obstacle','parking_blocked','other'].map(function(x){return '<option'+(U.rc==x?' selected':'')+'>'+x+'</option>'}).join('')+'</select><input placeholder="Incident note (optional)" value="'+U.inn+'" oninput="U.inn=this.value" style="margin-top:8px"><div class="g" style="margin-top:8px"><button onclick="inc(\'intervention\')">Intervention ('+calc(c).ni+')</button><button onclick="inc(\'safe_stop\')">Safe stop ('+calc(c).ns+')</button></div>';
+  h+='<h2>Handoff (vehicle at rest)</h2><input placeholder="New operator id" value="'+U.ho+'" oninput="U.ho=this.value"><label class="ck"><input type="checkbox" '+(U.st?'checked':'')+' onchange="U.st=this.checked"> Vehicle stationary</label><select onchange="U.hr=this.value">'+['issue_elsewhere','shift_change','other'].map(function(x){return '<option'+(U.hr==x?' selected':'')+'>'+x+'</option>'}).join('')+'</select><input placeholder="Handoff note (optional)" value="'+U.hn+'" oninput="U.hn=this.value" style="margin-top:8px"><div style="margin-top:8px"><button onclick="hand()">Log handoff ('+c.ho.length+')</button></div>';
+  h+='<h2>Notes</h2><textarea oninput="S.cur.notes=this.value;sv()">'+c.notes+'</textarea><h2>Finish</h2><div class="g"><button class="p" onclick="end(\'completed\')">Completed</button><button onclick="end(\'aborted\')">Aborted</button></div>';
+ }
+ document.getElementById('app').innerHTML=h;tick();exp()}
+function tick(){var c=S.cur;if(!c)return;var k=calc(c),a=document.getElementById('cw');if(a){a.textContent=mm(k.w);document.getElementById('cm').textContent=mm(k.m);document.getElementById('cr').textContent=k.w?(k.m/k.w).toFixed(2):'';}}
+setInterval(tick,1000);
+function q(v){v=v==null?'':String(v).replace(/[\t\r\n]+/g,' ').trim();return v===''?'n/a':v}
+function csv(h,rows){return [h.split(',').join('\t')].concat(rows.map(function(r){return r.map(q).join('\t')})).join('\n')}
+function exp(){var t=document.getElementById('tb').value,R=S.reqs.concat(S.cur?[S.cur]:[]),rows=[],H;
+ if(t=='visit'){H='visit_id,vehicle_id,venue_type,pass_type,dwell_sec,notes';var vs={},od=[];
+  R.forEach(function(r){var v=vs[r.visit];if(!v){v=vs[r.visit]={veh:'',ven:'',ps:'',n:'',t1:null,d:''};od.push(r.visit)}
+   v.veh=v.veh||r.veh||'';v.ven=v.ven||r.venue||'';v.ps=(v.ps&&v.ps!='n/a')?v.ps:(r.pass||'');v.n=v.n||r.vn||'';
+   if(r.type!='retrieval'){if(r.t1)v.t1=r.t1}else if(v.t1&&r.t0)v.d=mm(r.t0-v.t1)});
+  od.forEach(function(id){var v=vs[id];rows.push([id,v.veh,v.ven,v.ps,v.d,v.n])})}
+ if(t=='request'){H='request_id,visit_id,request_type,requested_at,tz_offset_min,ended_at,final_status,recorded_by,data_source,distance_mi,notes,w_sec,m_sec,issue_sec,supervising_sec,m_over_w,attach_wait_sec,interventions,safe_stops,handoffs,occ_attach_sec,occ_departure_sec,occ_transit_sec,occ_arrival_sec';
+  R.forEach(function(r){var k=calc(r);rows.push([r.id,r.visit,r.type,iso(r.t0),r.tz,iso(r.t1),r.status,r.by,r.src,r.dist,r.notes,mm(k.w),mm(k.m),mm(k.im),mm(k.sp),k.w?(k.m/k.w).toFixed(3):'',k.att==null?'':mm(k.att),k.ni,k.ns,k.nh,mm(k.pm.attach||0),mm(k.pm.departure||0),mm(k.pm.transit||0),mm(k.pm.arrival||0)])})}
+ if(t=='phase_event'){H='request_id,phase,parking_search,start_ts,end_ts';R.forEach(function(r){r.ph.forEach(function(p){rows.push([r.id,p.p,p.ps,iso(p.s),iso(p.e)])})})}
+ if(t=='operator_state_event'){H='request_id,state,occupied_reason,operator_load,operator_id,start_ts,end_ts';R.forEach(function(r){r.ops.forEach(function(o){rows.push([r.id,o.st,o.rs,o.ld,o.oid,iso(o.s),iso(o.e)])})})}
+ if(t=='incident_event'){H='request_id,occurred_at,kind,phase,reason_code,note';R.forEach(function(r){r.inc.forEach(function(i){rows.push([r.id,iso(i.t),i.k,i.ph,i.rc,i.n])})})}
+ if(t=='handoff_event'){H='request_id,occurred_at,from_operator_id,to_operator_id,vehicle_stationary,reason,note';R.forEach(function(r){r.ho.forEach(function(i){rows.push([r.id,iso(i.t),i.f,i.to,i.st,i.rs,i.n])})})}
+ document.getElementById('out').value=csv(H,rows)}
+function cp(){var a=document.getElementById('out'),b=document.getElementById('cpb');a.select();try{navigator.clipboard.writeText(a.value).then(function(){b.textContent='Copied'},function(){b.textContent='Select and copy'})}catch(e){b.textContent='Select and copy'}setTimeout(function(){b.textContent='Copy CSV'},2000)}
+function clr(){var b=document.getElementById('clb');if(CL){S={reqs:[],cur:null,n:0,cfg:S.cfg};sv();CL=0;b.textContent='Clear all data';render()}else{CL=1;b.textContent='Tap again to delete everything'}}
+render();
+</script></body></html>
