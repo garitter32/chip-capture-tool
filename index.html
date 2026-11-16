@@ -1,91 +1,117 @@
 <!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Chip Go! capture tool, prototype v0</title>
+<title>Chip Go! capture tool, prototype v0.2</title>
 <style>
 :root{--bg:#fff;--fg:#161616;--mu:#666;--card:#f3f3f3;--bd:#d6d6d6;--ac:#f26522;--acfg:#fff;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
 @media(prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#161616;--fg:#f2f2f2;--mu:#a3a3a3;--card:#242424;--bd:#3c3c3c}}
 :root[data-theme="dark"]{--bg:#161616;--fg:#f2f2f2;--mu:#a3a3a3;--card:#242424;--bd:#3c3c3c}
 html{scroll-padding-top:env(safe-area-inset-top,0px)}
 body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.4 Inter,system-ui,-apple-system,Segoe UI,sans-serif}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);background:var(--bg);z-index:10}
 .w{max-width:560px;margin:0 auto;padding:14px}
-h1{font-size:20px;margin:0 0 4px}h2{font-size:15px;margin:18px 0 8px}
+h1{font-size:20px;margin:0 0 4px}h2{font-size:15px;margin:16px 0 8px}
 .mu{color:var(--mu);font-size:13px}
-.bn{padding:8px 12px;border-radius:8px;font-weight:600;margin:10px 0;background:var(--card);border-left:6px solid var(--ac)}
+.top{position:sticky;top:env(safe-area-inset-top,0px);background:var(--bg);z-index:5;padding:4px 0 8px;border-bottom:1px solid var(--bd)}
+.bot{position:fixed;left:0;right:0;bottom:0;z-index:6;background:var(--bg);border-top:1px solid var(--bd);padding:8px 14px calc(8px + env(safe-area-inset-bottom,0px))}
+.bot>div{max-width:560px;margin:0 auto}
+.bn{padding:6px 12px;border-radius:8px;font-weight:600;margin:6px 0;background:var(--card);border-left:6px solid var(--ac);font-size:14px}
 .bn.real{border-left-color:#1b8a3a}
-.g{display:grid;gap:8px;grid-template-columns:repeat(2,1fr)}.g4{grid-template-columns:repeat(4,1fr)}
-button,select,input,textarea{font:inherit;color:var(--fg);background:var(--card);border:1px solid var(--bd);border-radius:10px;padding:12px 8px;width:100%;box-sizing:border-box}
+.g{display:grid;gap:8px;grid-template-columns:repeat(2,1fr)}.g3{grid-template-columns:repeat(3,1fr)}
+button,select,input,textarea{font:inherit;color:var(--fg);background:var(--card);border:1px solid var(--bd);border-radius:10px;padding:10px 8px;width:100%;box-sizing:border-box}
+button{min-height:56px;transition:transform .08s}
+button:active{transform:scale(.96);filter:brightness(1.2)}
 button:disabled{opacity:.4}
-button.on{background:var(--ac);color:var(--acfg);border-color:var(--ac);font-weight:700}
-button.p{background:var(--ac);color:var(--acfg);border-color:var(--ac);font-weight:700}
-.k{display:flex;gap:16px;margin:8px 0}.k div{flex:1}.k b{display:block;font-size:26px;font-variant-numeric:tabular-nums}
+button small{display:block;font-weight:400;font-size:12px;opacity:.85}
+button.on,button.p{background:var(--ac);color:var(--acfg);border-color:var(--ac);font-weight:700}
+button.nx{border:2px solid var(--ac)}
+button.ch{min-height:44px}
+.k{display:flex;gap:16px;margin:4px 0}.k div{flex:1}.k b{display:block;font-size:24px;font-variant-numeric:tabular-nums}
 label{display:block;font-size:13px;color:var(--mu);margin:8px 0 4px}
 textarea{min-height:64px}.sm{font-size:12px;white-space:pre-wrap}
 .ck{display:flex;align-items:center;gap:8px;margin:8px 0}.ck input{width:auto}
-.lg{background:var(--card);border-radius:10px;padding:8px 12px;margin:8px 0;font-size:14px;font-variant-numeric:tabular-nums}
+.lg{background:var(--card);border-radius:10px;padding:6px 12px;margin:6px 0;font-size:14px;font-variant-numeric:tabular-nums}
+details{margin-top:14px}summary{padding:10px 0;font-weight:600}
 </style></head><body><div class="w">
 <h1>Chip Go! capture tool</h1>
-<div class="mu">Prototype v0. Occupied (m) = total operator time with attention fully on the vehicle: planned driving, parking and issues. Attach is not counted as occupied (assumption).</div>
+<div class="mu">Prototype v0.2. Occupied (m) = total operator time with attention fully on the vehicle: expected driving and parking work plus problems. Attach is not counted as occupied (assumption).</div>
 <div id="app"></div>
-<h2>Export</h2>
+<div id="ex" style="display:none"><h2>Export</h2>
 <select id="tb" onchange="exp()"><option>visit</option><option>request</option><option>phase_event</option><option>operator_state_event</option><option>incident_event</option><option>handoff_event</option></select>
 <textarea id="out" class="sm" readonly rows="8" style="margin-top:8px"></textarea>
 <div class="g" style="margin-top:8px"><button onclick="dl(1)">Download all tables</button><button onclick="dl(0)">Download this table</button><button onclick="cp()" id="cpb">Copy table</button><button onclick="clr()" id="clb">Clear all data</button></div>
-<div class="mu" style="margin-top:6px">Downloads work on the hosted (GitHub) version. Where they are blocked, use Copy table and paste into a sheet. Export after every session: data stays in this browser until cleared.</div><div class="mu" id="dlm" style="margin-top:6px"></div>
+<div class="mu" style="margin-top:6px">Downloads work on the hosted (GitHub) version. Where they are blocked, use Copy table and paste into a sheet. Export after every session: data stays in this browser until cleared.</div><div class="mu" id="dlm" style="margin-top:6px"></div></div>
 </div>
 <script>
-var KEY='chipcap_v0',S={reqs:[],cur:null,n:0,cfg:{by:'',type:'dropoff_park',src:'synthetic',op:'',venue:''}},U={rc:'other',ho:'',hr:'issue_elsewhere',st:true,inn:'',hn:'',hist:[]},CL=0;
+var KEY='chipcap_v0',S={reqs:[],cur:null,n:0,cfg:{by:'',type:'dropoff_park',src:'synthetic',op:'',venue:''}},U={ho:'',hr:'issue_elsewhere',st:true,inn:'',hn:'',hist:[],pend:null,more:false,view:''},CL=0;
 try{var x=localStorage.getItem(KEY);if(x)S=JSON.parse(x)}catch(e){}
 function sv(){try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}}
 function now(){return Date.now()}
 function mm(v){return Math.round(v/1000)}
 function iso(t){return t==null?'':new Date(t).toISOString()}
 function ov(a,b,c,d){return Math.max(0,Math.min(b,d)-Math.max(a,c))}
+function fmt(s){s=Math.max(0,Math.round(s/1000));return Math.floor(s/60)+':'+('0'+s%60).slice(-2)}
 function calc(r){var T=r.t1||now(),cl=function(v){return v==null?T:v},m=0,im=0,sp=0,pm={};
  r.ops.forEach(function(o){var d=cl(o.e)-o.s;if(o.st=='occupied'){m+=d;if(o.rs=='issue')im+=d;r.ph.forEach(function(p){pm[p.p]=(pm[p.p]||0)+ov(o.s,cl(o.e),p.s,cl(p.e))})}if(o.st=='supervising')sp+=d});
  var f=r.ops.filter(function(o){return o.st=='occupied'})[0],w=T-r.t0;
  return{w:w,m:m,im:im,sp:sp,pm:pm,att:f?f.s-r.t0:null,ni:r.inc.filter(function(i){return i.k=='intervention'}).length,ns:r.inc.filter(function(i){return i.k=='safe_stop'}).length,nh:r.ho.length}}
 function cur(a){var c=S.cur;return c[a][c[a].length-1]}
 function snap(){U.hist.push(JSON.stringify(S.cur));if(U.hist.length>30)U.hist.shift()}
-function undo(){if(!U.hist.length)return;S.cur=JSON.parse(U.hist.pop());sv();render()}
-function fmt(s){s=Math.max(0,Math.round(s/1000));return Math.floor(s/60)+':'+('0'+s%60).slice(-2)}
-function taplog(c){var L=[];
- c.ph.forEach(function(p){L.push([p.s,'Phase: '+p.p+(p.ps?' (parking search)':'')])});
- c.ops.forEach(function(o){var n={not_attached:'not attached',supervising:'supervising',occupied:'occupied'}[o.st]+(o.rs?' ('+o.rs.replace('_',' ')+')':'');L.push([o.s,'Operator: '+n+', load '+o.ld])});
- c.inc.forEach(function(i){L.push([i.t,(i.k=='safe_stop'?'Safe stop':'Intervention')+' ('+i.rc+')'])});
- c.ho.forEach(function(i){L.push([i.t,'Handoff'+(i.to?' to '+i.to:'')])});
- L.sort(function(a,b){return a[0]-b[0]});var r=L.slice(-5).reverse();
- return '<div class="lg"><div class="mu">Last taps (newest first, time since start)</div>'+r.map(function(x,i){return '<div'+(i==0?' style="font-weight:700"':'')+'>'+fmt(x[0]-c.t0)+' · '+x[1]+'</div>'}).join('')+'</div>'}
+function undo(){if(!U.hist.length)return;S.cur=JSON.parse(U.hist.pop());U.pend=null;done('undid last tap')}
+function say(m){var e=document.getElementById('tt');if(e){e.textContent='Logged: '+m;clearTimeout(U.tm);U.tm=setTimeout(function(){var q=document.getElementById('tt');if(q)q.textContent=''},2500)}try{if(navigator.vibrate)navigator.vibrate(40)}catch(x){}}
+function done(m){sv();render();say(m)}
 function start(){var g=function(i){return document.getElementById(i).value};
  S.cfg={by:g('by'),type:g('ty'),src:g('sr'),op:g('op'),venue:g('ve'),veh:g('vh'),pass:g('ps')};
  var last=S.reqs[S.reqs.length-1],t=now();S.n++;if(!S.dev)S.dev=Math.random().toString(36).slice(2,6).toUpperCase();
  var vis;if(S.cfg.type=='retrieval'&&last)vis=last.visit;else{S.vc=(S.vc||0)+1;vis='V-'+S.dev+'-'+S.vc}
- U.hist=[];S.cur={id:'R-'+S.dev+'-'+S.n,visit:vis,type:S.cfg.type,src:S.cfg.src,by:S.cfg.by,venue:S.cfg.venue,veh:S.cfg.veh,pass:S.cfg.pass,dist:g('ds'),vn:g('vn'),oid:S.cfg.op,t0:t,t1:null,status:'',notes:'',tz:-new Date().getTimezoneOffset(),ph:[{p:'attach',s:t,e:null,ps:false}],ops:[{st:'not_attached',rs:'',ld:1,s:t,e:null,oid:S.cfg.op}],inc:[],ho:[]};
- sv();render()}
-function phase(p,ps){snap();var c=S.cur,t=now();cur('ph').e=t;c.ph.push({p:p,s:t,e:null,ps:!!ps});sv();render()}
+ U.hist=[];U.pend=null;U.view='';
+ S.cur={id:'R-'+S.dev+'-'+S.n,visit:vis,type:S.cfg.type,src:S.cfg.src,by:S.cfg.by,venue:S.cfg.venue,veh:S.cfg.veh,pass:S.cfg.pass,dist:g('ds'),vn:g('vn'),oid:S.cfg.op,t0:t,t1:null,status:'',notes:'',tz:-new Date().getTimezoneOffset(),ph:[{p:'attach',s:t,e:null,ps:false}],ops:[{st:'not_attached',rs:'',ld:1,s:t,e:null,oid:S.cfg.op}],inc:[],ho:[]};
+ done('request started')}
+function phase(p,ps){snap();var c=S.cur,t=now();cur('ph').e=t;c.ph.push({p:p,s:t,e:null,ps:!!ps});U.pend=null;done('phase '+p+(ps?' (parking search)':''))}
 function psearch(){var a=cur('ph');phase('arrival',!a.ps)}
-function op(st,rs){snap();var c=S.cur,t=now(),o=cur('ops');o.e=t;c.ops.push({st:st,rs:rs,ld:o.ld,s:t,e:null,oid:c.oid});sv();render()}
-function load(v){snap();var c=S.cur,t=now(),o=cur('ops');o.e=t;c.ops.push({st:o.st,rs:o.rs,ld:+v,s:t,e:null,oid:c.oid});sv();render()}
-function inc(k){snap();S.cur.inc.push({t:now(),k:k,ph:cur('ph').p,rc:U.rc,n:U.inn});U.inn='';sv();render()}
-function hand(){snap();var c=S.cur;c.ho.push({t:now(),f:c.oid,to:U.ho,st:U.st,rs:U.hr,n:U.hn});U.hn='';if(U.ho)c.oid=U.ho;sv();render()}
-function end(s){U.hist=[];var c=S.cur,t=now();c.t1=t;c.status=s;cur('ph').e=t;cur('ops').e=t;S.reqs.push(c);S.cur=null;sv();render()}
+function op(st,rs,lb){snap();var c=S.cur,t=now(),o=cur('ops');o.e=t;c.ops.push({st:st,rs:rs,ld:o.ld,s:t,e:null,oid:c.oid});U.pend=null;done('operator: '+lb)}
+function load(v){snap();var c=S.cur,t=now(),o=cur('ops');o.e=t;c.ops.push({st:o.st,rs:o.rs,ld:+v,s:t,e:null,oid:c.oid});done('operator holding '+v)}
+function inc(k){snap();var c=S.cur;c.inc.push({t:now(),k:k,ph:cur('ph').p,rc:'',n:U.inn});U.inn='';U.pend={i:c.inc.length-1,k:k};done(k=='safe_stop'?'safe stop':'intervention')}
+function reason(r){S.cur.inc[U.pend.i].rc=r;U.pend=null;sv();render();say('reason '+r)}
+function hand(){snap();var c=S.cur;c.ho.push({t:now(),f:c.oid,to:U.ho,st:U.st,rs:U.hr,n:U.hn});U.hn='';if(U.ho)c.oid=U.ho;done('handoff')}
+function end(s){U.hist=[];U.pend=null;var c=S.cur,t=now();c.t1=t;c.status=s;cur('ph').e=t;cur('ops').e=t;S.reqs.push(c);S.cur=null;U.view='done';sv();render();window.scrollTo(0,0)}
 function sel(id,opts,v){return '<select id="'+id+'">'+opts.map(function(o){return '<option'+(o==v?' selected':'')+'>'+o+'</option>'}).join('')+'</select>'}
+function B(cls,fn,t,sm){return '<button class="'+cls+'" onclick="'+fn+'">'+t+(sm?'<small>'+sm+'</small>':'')+'</button>'}
+function taplog(c){var L=[];
+ c.ph.forEach(function(p){L.push([p.s,'Phase: '+p.p+(p.ps?' (parking search)':'')])});
+ c.ops.forEach(function(o){var n={not_attached:'not connected',supervising:'watching only',occupied:'occupied'}[o.st]+(o.rs?' ('+o.rs.replace('_',' ')+')':'');L.push([o.s,'Operator: '+n+', holding '+o.ld])});
+ c.inc.forEach(function(i){L.push([i.t,(i.k=='safe_stop'?'Safe stop':'Intervention')+(i.rc?' ('+i.rc+')':'')])});
+ c.ho.forEach(function(i){L.push([i.t,'Handoff'+(i.to?' to '+i.to:'')])});
+ L.sort(function(a,b){return a[0]-b[0]});var r=L.slice(-3).reverse();
+ return '<div class="lg"><div class="mu">Last taps (newest first, time since start)</div>'+r.map(function(x,i){return '<div'+(i==0?' style="font-weight:700"':'')+'>'+fmt(x[0]-c.t0)+' \u00b7 '+x[1]+'</div>'}).join('')+'</div>'}
+function run(c){var p=cur('ph'),o=cur('ops'),h='',pi=0,ph=[['attach','Waiting for the operator'],['departure','Getting started'],['transit','Driving the route'],['arrival','Finding a spot and stopping']];
+ ph.forEach(function(x,i){if(x[0]==p.p)pi=i});
+ h+='<div class="top"><div class="bn '+(c.src=='real'?'real':'')+'">'+c.src.toUpperCase()+' data \u00b7 '+c.id+' \u00b7 '+c.type+'</div>';
+ h+='<div class="k"><div><span class="mu">Elapsed (w, sec)</span><b id="cw"></b></div><div><span class="mu">Occupied (m, sec)</span><b id="cm"></b></div><div><span class="mu">m/w</span><b id="cr"></b></div></div>';
+ h+=taplog(c)+'<div id="tt" class="mu" style="min-height:18px"></div><button onclick="undo()"'+(U.hist.length?'':' disabled')+' style="min-height:44px">Undo last tap ('+U.hist.length+')</button></div>';
+ h+='<h2>Where is the trip now?</h2><div class="g">'+ph.map(function(x,i){return B(p.p==x[0]?'on':(i==pi+1?'nx':''),"phase('"+x[0]+"')",x[0],x[1])}).join('')+'</div>';
+ if(p.p=='arrival')h+='<div style="margin-top:8px">'+B(p.ps?'on':'',"psearch()",p.ps?'Searching for a spot':'Start parking search',p.ps?'Tap when a spot is found':'Tap if the vehicle is circling or looking')+'</div>';
+ h+='<h2>What is the operator doing right now?</h2><div class="g">'+[['not_attached','','Not connected yet','No operator in control'],['supervising','','Watching only','Not driving'],['occupied','planned_phase','Driving','Occupied: full attention, expected work'],['occupied','issue','Driving: problem','Occupied: full attention, something went wrong']].map(function(x){return B(o.st==x[0]&&o.rs==x[1]?'on':'',"op('"+x[0]+"','"+x[1]+"','"+x[2]+"')",x[2],x[3])}).join('')+'</div>';
+ h+='<h2>Vehicles the operator is holding (including this one)</h2><div class="g">'+B(o.ld==1?'on':'',"load(1)",'1 vehicle')+B(o.ld==2?'on':'',"load(2)",'2 vehicles')+'</div>';
+ h+='<details'+(U.more?' open':'')+' ontoggle="U.more=this.open"><summary>More: handoff, notes, distance</summary>';
+ h+='<label>Note for the next incident (optional)</label><input value="'+U.inn+'" oninput="U.inn=this.value">';
+ h+='<h2>Handoff to another operator (vehicle at rest)</h2><input placeholder="New operator id" value="'+U.ho+'" oninput="U.ho=this.value"><label class="ck"><input type="checkbox" '+(U.st?'checked':'')+' onchange="U.st=this.checked"> Vehicle is stationary</label>'+sel('hrs',['issue_elsewhere','shift_change','other'],U.hr).replace('<select ','<select onchange="U.hr=this.value" ')+'<input placeholder="Handoff note (optional)" value="'+U.hn+'" oninput="U.hn=this.value" style="margin-top:8px"><div style="margin-top:8px">'+B('',"hand()",'Log handoff ('+c.ho.length+')')+'</div>';
+ h+='<label>Distance, miles (optional)</label><input type="number" step="0.1" min="0" value="'+(c.dist||'')+'" oninput="S.cur.dist=this.value;sv()"><label>Request notes (optional)</label><textarea oninput="S.cur.notes=this.value;sv()">'+c.notes+'</textarea></details>';
+ h+='<h2>Finish</h2><div class="g">'+B('p',"end('completed')",'Completed')+B('',"end('aborted')",'Aborted')+'</div><div style="height:110px"></div>';
+ h+='<div class="bot"><div>';
+ if(U.pend){h+='<div class="mu" style="margin-bottom:6px">Reason for that '+(U.pend.k=='safe_stop'?'safe stop':'intervention')+'? (optional)</div><div class="g g3">'+['link_loss','obstacle','parking_blocked','other'].map(function(r){return B('ch',"reason('"+r+"')",r)}).join('')+B('ch',"U.pend=null;render()",'Skip')+'</div>'}
+ else h+='<div class="g">'+B('',"inc('intervention')",'Intervention ('+calc(c).ni+')','Operator had to act')+B('',"inc('safe_stop')",'Safe stop ('+calc(c).ns+')','Vehicle stopped itself')+'</div>';
+ return h+'</div></div>'}
+function doneHTML(){var r=S.reqs[S.reqs.length-1],h='',k,d=U.view=='done'&&r;
+ if(d){k=calc(r);h+='<h2>Request '+r.status+'</h2><div class="lg">'+r.id+' · '+r.type+' · '+r.src+'<br>w '+mm(k.w)+' sec · m '+mm(k.m)+' sec · m/w '+(k.w?(k.m/k.w).toFixed(2):'n/a')+'<br>Interventions '+k.ni+' · safe stops '+k.ns+' · handoffs '+k.nh+'</div><div class="mu">Saved in this browser. Export below, or start the next request.</div>'}
+ else h+='<h2>Export data</h2><div class="mu">'+S.reqs.length+' request(s) saved in this browser.</div>';
+ return h+'<div style="margin-top:10px">'+B('p',"U.view='';render()",d?'Start new request':'Back')+'</div>'}
 function render(){var c=S.cur,h='';
- if(!c){var f=S.cfg;
-  h+='<h2>New request</h2><label>Recorded by</label><input id="by" value="'+f.by+'"><label>Request type</label>'+sel('ty',['dropoff_park','retrieval'],f.type)+'<label>Data source</label>'+sel('sr',['synthetic','test','real'],f.src)+'<label>Operator id (anonymized)</label><input id="op" value="'+f.op+'"><label>Venue type (optional)</label><input id="ve" value="'+f.venue+'"><label>Vehicle id (optional)</label><input id="vh" value="'+(f.veh||'')+'"><label>Pass type (optional)</label>'+sel('ps',['n/a','day','week','month','year','unknown'],f.pass||'n/a')+'<label>Distance, miles (optional)</label><input id="ds" type="number" step="0.1" min="0"><label>Visit notes (optional)</label><input id="vn"><div style="margin-top:12px"><button class="p" onclick="start()">Start request</button></div>';
-  if(S.reqs.length){h+='<h2>Recorded requests</h2>';S.reqs.slice().reverse().forEach(function(r){var k=calc(r);h+='<div class="sm" style="margin-bottom:8px">'+r.id+' · '+r.type+' · '+r.src+' · '+r.status+'<br>w '+mm(k.w)+' sec, m '+mm(k.m)+' sec, m/w '+(k.w?(k.m/k.w).toFixed(2):'')+', interventions '+k.ni+', safe stops '+k.ns+'</div>'})}
- }else{var p=cur('ph'),o=cur('ops'),ph=['attach','departure','transit','arrival'];
-  h+='<div class="bn '+(c.src=='real'?'real':'')+'">'+c.src.toUpperCase()+' data · '+c.id+' · '+c.type+' · visit '+c.visit+'</div>';
-  h+=taplog(c);h+='<div class="k"><div><span class="mu">Elapsed (w, sec)</span><b id="cw"></b></div><div><span class="mu">Occupied (m, sec)</span><b id="cm"></b></div><div><span class="mu">m/w</span><b id="cr"></b></div></div>';
-  h+='<button onclick="undo()"'+(U.hist.length?'':' disabled')+' style="margin-top:8px">Undo last tap ('+U.hist.length+')</button><h2>Phase</h2><div class="g g4">'+ph.map(function(x){return '<button class="'+(p.p==x?'on':'')+'" onclick="phase(\''+x+'\')">'+x+'</button>'}).join('')+'</div>';
-  if(p.p=='arrival')h+='<div style="margin-top:8px"><button class="'+(p.ps?'on':'')+'" onclick="psearch()">'+(p.ps?'Searching for a spot (tap when found)':'Start parking search')+'</button></div>';
-  h+='<h2>Operator state</h2><div class="g">'+[['not_attached','','Not attached'],['supervising','','Supervising'],['occupied','planned_phase','Occupied: planned'],['occupied','issue','Occupied: issue']].map(function(x){return '<button class="'+(o.st==x[0]&&o.rs==x[1]?'on':'')+'" onclick="op(\''+x[0]+'\',\''+x[1]+'\')">'+x[2]+'</button>'}).join('')+'</div>';
-  h+='<label>Operator load (vehicles held, including this one)</label><select onchange="load(this.value)"><option'+(o.ld==1?' selected':'')+'>1</option><option'+(o.ld==2?' selected':'')+'>2</option></select>';
-  h+='<h2>Incidents</h2><select onchange="U.rc=this.value">'+['link_loss','obstacle','parking_blocked','other'].map(function(x){return '<option'+(U.rc==x?' selected':'')+'>'+x+'</option>'}).join('')+'</select><input placeholder="Incident note (optional)" value="'+U.inn+'" oninput="U.inn=this.value" style="margin-top:8px"><div class="g" style="margin-top:8px"><button onclick="inc(\'intervention\')">Intervention ('+calc(c).ni+')</button><button onclick="inc(\'safe_stop\')">Safe stop ('+calc(c).ns+')</button></div>';
-  h+='<h2>Handoff (vehicle at rest)</h2><input placeholder="New operator id" value="'+U.ho+'" oninput="U.ho=this.value"><label class="ck"><input type="checkbox" '+(U.st?'checked':'')+' onchange="U.st=this.checked"> Vehicle stationary</label><select onchange="U.hr=this.value">'+['issue_elsewhere','shift_change','other'].map(function(x){return '<option'+(U.hr==x?' selected':'')+'>'+x+'</option>'}).join('')+'</select><input placeholder="Handoff note (optional)" value="'+U.hn+'" oninput="U.hn=this.value" style="margin-top:8px"><div style="margin-top:8px"><button onclick="hand()">Log handoff ('+c.ho.length+')</button></div>';
-  h+='<h2>Notes</h2><textarea oninput="S.cur.notes=this.value;sv()">'+c.notes+'</textarea><h2>Finish</h2><div class="g"><button class="p" onclick="end(\'completed\')">Completed</button><button onclick="end(\'aborted\')">Aborted</button></div>';
- }
- document.getElementById('app').innerHTML=h;tick();exp()}
+ if(!c&&U.view){h=doneHTML()}else if(!c){var f=S.cfg;
+  h+='<h2>New request</h2><label>Recorded by</label><input id="by" value="'+f.by+'"><label>Request type</label>'+sel('ty',['dropoff_park','retrieval'],f.type)+'<label>Data source</label>'+sel('sr',['synthetic','test','real'],f.src)+'<label>Operator id (anonymized)</label><input id="op" value="'+f.op+'"><label>Venue type (optional)</label><input id="ve" value="'+f.venue+'"><label>Vehicle id (optional)</label><input id="vh" value="'+(f.veh||'')+'"><label>Pass type (optional)</label>'+sel('ps',['n/a','day','week','month','year','unknown'],f.pass||'n/a')+'<label>Distance, miles (optional)</label><input id="ds" type="number" step="0.1" min="0"><label>Visit notes (optional)</label><input id="vn"><div style="margin-top:12px"><button class="p" onclick="start()">Start request</button></div><div style="margin-top:8px">'+B('',"U.view='export';render()",'Export data ('+S.reqs.length+')')+'</div>';
+  if(S.reqs.length){h+='<h2>Recorded requests</h2>';S.reqs.slice().reverse().forEach(function(r){var k=calc(r);h+='<div class="sm" style="margin-bottom:8px">'+r.id+' \u00b7 '+r.type+' \u00b7 '+r.src+' \u00b7 '+r.status+'<br>w '+mm(k.w)+' sec, m '+mm(k.m)+' sec, m/w '+(k.w?(k.m/k.w).toFixed(2):'')+', interventions '+k.ni+', safe stops '+k.ns+'</div>'})}
+ }else h=run(c);
+ document.getElementById('app').innerHTML=h;document.getElementById('ex').style.display=(!c&&U.view)?'block':'none';tick();if(!c&&U.view)exp()}
 function tick(){var c=S.cur;if(!c)return;var k=calc(c),a=document.getElementById('cw');if(a){a.textContent=mm(k.w);document.getElementById('cm').textContent=mm(k.m);document.getElementById('cr').textContent=k.w?(k.m/k.w).toFixed(2):'';}}
 setInterval(tick,1000);
 function q(v){v=v==null?'':String(v).replace(/[\t\r\n]+/g,' ').trim();return v===''?'n/a':v}
